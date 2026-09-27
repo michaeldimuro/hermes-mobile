@@ -1,0 +1,167 @@
+{
+  "expo": {
+    "name": "Hermes Mobile",
+    "slug": "hermes-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mndimuro.hermesmobile",
+      "infoPlist": {
+        "CADisableMinimumFrameDurationOnPhone": true,
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.mndimuro.hermesmobile"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mndimuro.hermesmobile",
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Hermes attaches the photos you choose to your conversation.",
+          "cameraPermission": "Hermes uses the camera to capture photos you send to your bots.",
+          "microphonePermission": "Hermes listens when you talk to your bots in voice mode or dictate a message."
+        }
+      ],
+      "expo-font",
+      "expo-video",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Hermes listens when you talk to your bots in voice mode or dictate a message.",
+          "recordAudioAndroid": true,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsText": true,
+              "supportsWebUrlWithMaxCount": 1,
+              "supportsWebPageWithMaxCount": 1,
+              "supportsImageWithMaxCount": 4,
+              "supportsFileWithMaxCount": 4,
+              "supportsMovieWithMaxCount": 1
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "text/plain",
+              "image/*",
+              "application/pdf",
+              "*/*"
+            ],
+            "multipleShareMimeTypes": [
+              "image/*",
+              "*/*"
+            ]
+          }
+        }
+      ],
+      "expo-web-browser",
+      "expo-image",
+      "expo-asset",
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "HermesBots",
+              "displayName": "Hermes Bots",
+              "description": "Jump into a chat with your favourite bots",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expo-quick-actions",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Hermes uses Face ID to keep your bots and conversations private."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default"
+        }
+      ]
+    ],
+    "scheme": "hermes",
+    "backgroundColor": "#FFFFFF",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "expo-sharing-extension",
+                  "bundleIdentifier": "com.mndimuro.hermesmobile.expo-sharing-extension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.mndimuro.hermesmobile"
+                    ]
+                  }
+                },
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.mndimuro.hermesmobile.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.mndimuro.hermesmobile"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "e9f15327-1a19-4875-ac89-e6cf1e14910f"
+      }
+    },
+    "owner": "mndimuro"
+  }
+}
