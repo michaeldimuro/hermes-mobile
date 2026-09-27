@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --ci
+
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - run: python -m py_compile server/plugin/__init__.py server/plugin/store.py server/plugin/dashboard/plugin_api.py
+      - run: python -m pytest -q server/tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --check server/push-relay/relay.mjs
+
+  installer-unix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n install/install.sh
+      - run: shellcheck -S error install/install.sh
+
+  installer-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse install.ps1
+        shell: powershell
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD\install\install.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          Write-Host "install.ps1 parses cleanly"
+
+  launcher-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: clang -O2 -Wall -Werror -o /tmp/Hermes server/launcher-macos/hermes-launcher.c
+      - run: plutil -lint server/launcher-macos/Info.plist
+      - name: Launcher forwards exit codes
+        run: |
+          /tmp/Hermes /usr/bin/true
+          set +e; /tmp/Hermes /usr/bin/false; code=$?; set -e
+          test "$code" = 1
