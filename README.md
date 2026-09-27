@@ -40,7 +40,7 @@ The installer adds the `hermes-mobile` Hermes plugin, runs the Hermes dashboard 
 | [`relay/`](relay) | Self-hostable relay (Docker + automatic HTTPS): reach Hermes with no VPN and no open ports ([guide](docs/relay.md)) |
 | [`install/`](install) | `install.sh` (macOS, Linux) and `install.ps1` (Windows) |
 | [`website/`](website) | The website (GitHub Pages) |
-| [`docs/`](docs) | [Architecture](docs/architecture.md), [security](docs/security.md), [networking](docs/networking.md), [self-build](docs/self-build.md) |
+| [`docs/`](docs) | [Architecture](docs/architecture.md), [security](docs/security.md), [networking](docs/networking.md), [self-build](docs/self-build.md), [App Store release](docs/app-store.md), [relay](docs/relay.md) |
 
 Tested with Hermes Agent 0.21. The plugin relies on a few Hermes internals (see [architecture](docs/architecture.md)); a Hermes update can require a plugin update.
 
