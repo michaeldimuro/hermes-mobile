@@ -1,0 +1,6 @@
+name: hermes-mobile
+version: 1.0.0
+description: "Hermes Mobile companion: the phone app's server API (capabilities, browser screen share) and the browser_handoff tool."
+author: Hermes Mobile
+provides_tools:
+  - browser_handoff

@@ -1,0 +1,11 @@
+{
+  "name": "hermes-mobile",
+  "label": "Hermes Mobile",
+  "description": "API for the Hermes Mobile app: capabilities and browser screen share.",
+  "icon": "Monitor",
+  "version": "1.0.0",
+  "tab": { "path": "/hermes-mobile", "hidden": true },
+  "slots": [],
+  "entry": "dist/index.js",
+  "api": "plugin_api.py"
+}
