@@ -34,7 +34,7 @@ function Warn($text) { Write-Host "    ! $text" -ForegroundColor Yellow }
 function Fail($text) { Write-Host "Error: $text" -ForegroundColor Red; throw $text }
 function Flag($name) { $v = [Environment]::GetEnvironmentVariable($name); return ($v -eq "1" -or $v -eq "true" -or $v -eq "yes") }
 
-# ── Hermes ────────────────────────────────────────────────────────────────────────────────────────
+# -- Hermes ----------------------------------------------------------------------------------------
 $HermesCmd = Get-Command hermes -ErrorAction SilentlyContinue
 if (-not $HermesCmd) { Fail "Hermes isn't installed (no 'hermes' command). Install Hermes Agent first: https://hermes-agent.nousresearch.com/docs/" }
 $HermesBin = $HermesCmd.Source
@@ -90,7 +90,7 @@ function WaitForDashboard {
   return $false
 }
 
-# ── Credentials & pairing ─────────────────────────────────────────────────────────────────────────
+# -- Credentials & pairing -------------------------------------------------------------------------
 $User = EnvGet $EnvFile "HERMES_DASHBOARD_BASIC_AUTH_USERNAME"
 $Password = EnvGet $EnvFile "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD"
 $PublicUrl = (Hermes config get dashboard.public_url | Select-Object -Last 1)
@@ -115,7 +115,7 @@ function ShowPairing {
 
 if (Flag "HERMES_MOBILE_PAIR") { ShowPairing; return }
 
-# ── Uninstall ─────────────────────────────────────────────────────────────────────────────────────
+# -- Uninstall -------------------------------------------------------------------------------------
 if (Flag "HERMES_MOBILE_UNINSTALL") {
   Step "Removing Hermes Mobile"
   foreach ($task in @($PushTask, $DashTask)) {
@@ -135,7 +135,7 @@ if (Flag "HERMES_MOBILE_UNINSTALL") {
 Write-Host "Hermes Mobile installer" -ForegroundColor White
 Note ("Hermes: " + (Hermes --version | Select-Object -First 1))
 
-# ── Source files ──────────────────────────────────────────────────────────────────────────────────
+# -- Source files ----------------------------------------------------------------------------------
 $Source = $env:HERMES_MOBILE_SOURCE
 if (-not $Source -and $PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "..\server\plugin"))) { $Source = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path }
 if (-not $Source) {
@@ -149,7 +149,7 @@ if (-not $Source) {
 }
 if (-not (Test-Path (Join-Path $Source "server\plugin"))) { Fail "couldn't find server\plugin in $Source" }
 
-# ── 1. Plugin ─────────────────────────────────────────────────────────────────────────────────────
+# -- 1. Plugin -------------------------------------------------------------------------------------
 Step "Installing the hermes-mobile Hermes plugin"
 $PluginDir = Join-Path $HermesHome "plugins\hermes-mobile"
 $OldPlugin = Join-Path $HermesHome "plugins\mobile-browser"
@@ -160,7 +160,7 @@ Copy-Item -Recurse -Force (Join-Path $Source "server\plugin\*") $PluginDir
 Hermes plugins enable hermes-mobile | Out-Null
 Note "Installed to $PluginDir and enabled."
 
-# ── 2. Sign-in ────────────────────────────────────────────────────────────────────────────────────
+# -- 2. Sign-in ------------------------------------------------------------------------------------
 Step "Dashboard sign-in"
 $Alnum = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 if (-not $User) { $User = "hermes"; EnvSet $EnvFile "HERMES_DASHBOARD_BASIC_AUTH_USERNAME" $User }
@@ -171,7 +171,7 @@ if (-not $Password) {
 } else { Note "Keeping the existing password for user '$User' (paired phones stay connected)." }
 if (-not (EnvGet $EnvFile "HERMES_DASHBOARD_BASIC_AUTH_SECRET")) { EnvSet $EnvFile "HERMES_DASHBOARD_BASIC_AUTH_SECRET" (RandomText 64 "0123456789abcdef") }
 
-# ── 3. Network ────────────────────────────────────────────────────────────────────────────────────
+# -- 3. Network ------------------------------------------------------------------------------------
 $Tailscale = Get-Command tailscale -ErrorAction SilentlyContinue
 if (-not $Tailscale -and (Test-Path "C:\Program Files\Tailscale\tailscale.exe")) { $Tailscale = Get-Command "C:\Program Files\Tailscale\tailscale.exe" }
 if (-not $Network) {
@@ -200,7 +200,7 @@ if ($Network -eq "tailscale") {
 Hermes config set dashboard.public_url $PublicUrl | Out-Null
 Note "Your phone will connect to $PublicUrl"
 
-# ── 4. Dashboard service (a logon task; restarts if it stops) ─────────────────────────────────────
+# -- 4. Dashboard service (a logon task; restarts if it stops) -------------------------------------
 Step "Running Hermes as a background task"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $busy = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
@@ -235,22 +235,22 @@ if ($Network -eq "tailscale") {
 if (-not (WaitForDashboard)) { Fail "the dashboard didn't come up (see $LogDir)" }
 Note "Scheduled task '$DashTask' (starts when you sign in to Windows)."
 
-# ── 5. Push relay ─────────────────────────────────────────────────────────────────────────────────
+# -- 5. Push relay ---------------------------------------------------------------------------------
 if ($env:HERMES_MOBILE_PUSH -ne "0") {
   Step "Push-notification relay"
   $node = Get-ChildItem (Join-Path $HermesHome "tools") -Filter "node.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -Last 1
   $nodePath = if ($node) { $node.FullName } else { (Get-Command node -ErrorAction SilentlyContinue).Source }
-  if (-not $nodePath) { Warn "No Node.js 22+ found — skipping push notifications." }
+  if (-not $nodePath) { Warn "No Node.js 22+ found - skipping push notifications." }
   else {
     $relayDir = Join-Path $HermesHome "mobile-push-relay"
     New-Item -ItemType Directory -Force -Path $relayDir | Out-Null
     Copy-Item -Force (Join-Path $Source "server\push-relay\relay.mjs") $relayDir
     RegisterTask $PushTask $nodePath "'$(Join-Path $relayDir 'relay.mjs')'" @{ HERMES_URL = "http://127.0.0.1:$Port"; HERMES_USERNAME = $User; HERMES_PASSWORD = $Password }
-    Note "Relay running with $nodePath. Turn notifications on in the app: Settings → Notifications."
+    Note "Relay running with $nodePath. Turn notifications on in the app: Settings -> Notifications."
   }
 }
 
-# ── 6. Optional: voice ────────────────────────────────────────────────────────────────────────────
+# -- 6. Optional: voice ----------------------------------------------------------------------------
 if (Flag "HERMES_MOBILE_VOICE") {
   Step "ElevenLabs voice for every bot"
   $key = EnvGet $EnvFile "ELEVENLABS_API_KEY"
@@ -266,7 +266,7 @@ if (Flag "HERMES_MOBILE_VOICE") {
   }
 }
 
-# ── 7. Optional: 1Password ────────────────────────────────────────────────────────────────────────
+# -- 7. Optional: 1Password ------------------------------------------------------------------------
 if (Flag "HERMES_MOBILE_ONEPASSWORD") {
   Step "1Password service account for every bot"
   Note "Service accounts can't read your built-in Personal/Private vault: give it read-only access to a dedicated vault."
@@ -285,7 +285,7 @@ if (Flag "HERMES_MOBILE_ONEPASSWORD") {
   }
 }
 
-# ── 8. Optional: real browser ─────────────────────────────────────────────────────────────────────
+# -- 8. Optional: real browser ---------------------------------------------------------------------
 if ($env:HERMES_MOBILE_REAL_BROWSER) {
   foreach ($bot in ($env:HERMES_MOBILE_REAL_BROWSER -split "[, ]+" | Where-Object { $_ })) {
     Step "Real Chrome profile for $bot"
@@ -295,7 +295,7 @@ if ($env:HERMES_MOBILE_REAL_BROWSER) {
   }
 }
 
-# ── 9. Restart and check ──────────────────────────────────────────────────────────────────────────
+# -- 9. Restart and check --------------------------------------------------------------------------
 Step "Checking"
 Stop-ScheduledTask -TaskName $DashTask -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
