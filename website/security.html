@@ -55,6 +55,11 @@
           <p>The pairing page receives your URL, username and password in the link's fragment (the part after <code>#</code>), which browsers never send to a server. The page removes it from the address bar and history as soon as it loads, draws the QR code locally, and makes no network requests with it. Anyone who sees the QR code can sign in to your Hermes, so don't share or screenshot it.</p>
         </section>
 
+        <section class="sec-item" aria-labelledby="s-relay">
+          <h2 id="s-relay">Self-hosted relay (opt-in)</h2>
+          <p>With <code>--network relay</code>, a small connector on your computer dials out to a relay you run, and the app reaches Hermes through it. HTTPS ends at the relay, so whoever runs the relay could see traffic: run it on a server you control. Hermes' password still guards every request, the relay slows down password guessing, and the connector refuses to expose Hermes whenever Hermes isn't requiring sign-in.</p>
+        </section>
+
         <section class="sec-item" aria-labelledby="s-screen">
           <h2 id="s-screen">Screen share</h2>
           <p>The live view only shows, and relays mouse, keyboard and touch input to, browsers that Hermes itself opened. It runs over the same authenticated dashboard connection as everything else. It can't see or control the rest of your desktop.</p>

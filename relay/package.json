@@ -1,0 +1,17 @@
+{
+  "name": "hermes-mobile-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hostable relay that lets Hermes Mobile reach a Hermes behind NAT, without a VPN",
+  "type": "module",
+  "main": "server.mjs",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}

@@ -40,6 +40,17 @@ $env:HERMES_MOBILE_NETWORK="https://hermes.example.com"
 irm https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.ps1 | iex
 ```
 
+## Self-hosted relay (`--network relay`)
+
+Run the relay on any server with a domain name (see [relay.md](relay.md)), then:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.sh \
+  | bash -s -- --network relay --relay-url https://relay.example.com --relay-token <RELAY_TOKEN>
+```
+
+The phone needs nothing but the app, and nothing at home listens on the internet: a connector next to Hermes dials out to the relay. HTTPS ends at the relay, so run it on a server you trust; Hermes' password still guards everything.
+
 ## Roadmap
 
-A hosted, end-to-end-encrypted relay (no Tailscale or port setup needed, and the relay can't read your traffic) is planned.
+End-to-end encryption through the relay (so even the relay operator can't read traffic) is planned.

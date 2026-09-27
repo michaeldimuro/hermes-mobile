@@ -3,7 +3,9 @@
 #   irm https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.ps1 | iex
 #
 # Options (set before running, because `irm | iex` can't take arguments):
-#   $env:HERMES_MOBILE_NETWORK = "tailscale" | "lan" | "https://your.url"   (default: tailscale if installed, else lan)
+#   $env:HERMES_MOBILE_NETWORK = "tailscale" | "lan" | "relay" | "https://your.url"   (default: tailscale if installed, else lan)
+#   $env:HERMES_MOBILE_RELAY_URL = "https://relay.example.com"   your self-hosted relay (with NETWORK=relay; see relay/)
+#   $env:HERMES_MOBILE_RELAY_TOKEN = "..."    the relay's RELAY_TOKEN (asked for, hidden, when unset)
 #   $env:HERMES_MOBILE_PORT = "9119"
 #   $env:HERMES_MOBILE_VOICE = "1"            ElevenLabs voice for every bot (needs ELEVENLABS_API_KEY in Hermes' .env)
 #   $env:HERMES_MOBILE_ONEPASSWORD = "1"      headless 1Password for every bot (asks for a service-account token)
@@ -26,6 +28,7 @@ $Port = if ($env:HERMES_MOBILE_PORT) { [int]$env:HERMES_MOBILE_PORT } else { 911
 $Network = $env:HERMES_MOBILE_NETWORK
 $DashTask = "Hermes Mobile Dashboard"
 $PushTask = "Hermes Mobile Push Relay"
+$ConnectorTask = "Hermes Mobile Relay Connector"
 $LogDir = Join-Path $HermesHome "logs"
 
 function Step($text) { Write-Host "`n==> $text" -ForegroundColor Cyan }
@@ -79,6 +82,9 @@ function RandomText($length, $chars) {
   return -join ($bytes | ForEach-Object { $chars[$_ % $chars.Length] })
 }
 
+# Local addresses make Hermes drop its sign-in gate; never publish one.
+function IsLocalUrl($url) { return $url -match "^https?://(localhost|127\.|\[::1\]|0\.0\.0\.0)" }
+
 function WaitForDashboard {
   for ($i = 0; $i -lt 60; $i++) {
     try {
@@ -118,14 +124,15 @@ if (Flag "HERMES_MOBILE_PAIR") { ShowPairing; return }
 # -- Uninstall -------------------------------------------------------------------------------------
 if (Flag "HERMES_MOBILE_UNINSTALL") {
   Step "Removing Hermes Mobile"
-  foreach ($task in @($PushTask, $DashTask)) {
+  foreach ($task in @($ConnectorTask, $PushTask, $DashTask)) {
     Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue
     Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
   }
   $ts = Get-Command tailscale -ErrorAction SilentlyContinue
   if ($ts) { & $ts.Source serve --https=443 off 2>$null | Out-Null }
   Hermes plugins disable hermes-mobile | Out-Null
-  Remove-Item -Recurse -Force (Join-Path $HermesHome "plugins\hermes-mobile"), (Join-Path $HermesHome "mobile-push-relay") -ErrorAction SilentlyContinue
+  Remove-Item -Recurse -Force (Join-Path $HermesHome "plugins\hermes-mobile"), (Join-Path $HermesHome "mobile-push-relay"), (Join-Path $HermesHome "mobile-relay-connector") -ErrorAction SilentlyContinue
+  foreach ($k in "HERMES_MOBILE_RELAY_URL", "HERMES_MOBILE_RELAY_TOKEN", "HERMES_MOBILE_RELAY_HOST_ID") { EnvUnset $EnvFile $k }
   foreach ($k in "HERMES_DASHBOARD_BASIC_AUTH_USERNAME", "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD", "HERMES_DASHBOARD_BASIC_AUTH_SECRET") { EnvUnset $EnvFile $k }
   Hermes config set dashboard.public_url "" | Out-Null
   Note "Removed the scheduled tasks, plugin, relay and dashboard sign-in. Voice, 1Password and browser settings on your bots are kept."
@@ -193,10 +200,31 @@ if ($Network -eq "tailscale") {
   $PublicUrl = "http://${ip}:$Port"
   Warn "LAN mode is plain HTTP on your local network; only use it on networks you trust."
   New-NetFirewallRule -DisplayName "Hermes Mobile dashboard" -Direction Inbound -Protocol TCP -LocalPort $Port -Profile Private -Action Allow -ErrorAction SilentlyContinue | Out-Null
+} elseif ($Network -eq "relay") {
+  $RelayUrl = if ($env:HERMES_MOBILE_RELAY_URL) { $env:HERMES_MOBILE_RELAY_URL } else { EnvGet $EnvFile "HERMES_MOBILE_RELAY_URL" }
+  $RelayUrl = "$RelayUrl".TrimEnd("/")
+  if ($RelayUrl -notmatch "^https?://") { Fail "HERMES_MOBILE_NETWORK=relay needs HERMES_MOBILE_RELAY_URL=https://your-relay (see relay/ in the repo)" }
+  if (IsLocalUrl $RelayUrl) { Fail "the relay must have a public address, not ${RelayUrl}: Hermes turns sign-in off when its public address is local." }
+  $RelayToken = if ($env:HERMES_MOBILE_RELAY_TOKEN) { $env:HERMES_MOBILE_RELAY_TOKEN } else { EnvGet $EnvFile "HERMES_MOBILE_RELAY_TOKEN" }
+  if (-not $RelayToken) {
+    $secureToken = Read-Host "    Relay token (the relay's RELAY_TOKEN, hidden)" -AsSecureString
+    $RelayToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)).Trim()
+  }
+  if (-not $RelayToken) { Fail "HERMES_MOBILE_NETWORK=relay needs HERMES_MOBILE_RELAY_TOKEN" }
+  try { $health = Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 "$RelayUrl/healthz"; if ($health.Content -notmatch "hermes-mobile-relay") { throw "no relay" } }
+  catch { Warn "Couldn't reach a Hermes Mobile relay at $RelayUrl; continuing." }
+  # Keep the host id across re-runs so paired phones keep working.
+  $RelayHostId = EnvGet $EnvFile "HERMES_MOBILE_RELAY_HOST_ID"
+  if (-not $RelayHostId) { $RelayHostId = RandomText 20 "abcdefghijklmnopqrstuvwxyz0123456789" }
+  EnvSet $EnvFile "HERMES_MOBILE_RELAY_URL" $RelayUrl
+  EnvSet $EnvFile "HERMES_MOBILE_RELAY_TOKEN" $RelayToken
+  EnvSet $EnvFile "HERMES_MOBILE_RELAY_HOST_ID" $RelayHostId
+  $PublicUrl = "$RelayUrl/h/$RelayHostId"
 } elseif ($Network -match "^https?://") {
+  if (IsLocalUrl $Network) { Fail "use an address your phone can reach, not ${Network}: Hermes turns sign-in off when its public address is local." }
   $PublicUrl = $Network.TrimEnd("/")
   Note "Point your proxy or tunnel at http://127.0.0.1:$Port."
-} else { Fail "HERMES_MOBILE_NETWORK must be tailscale, lan, or a URL" }
+} else { Fail "HERMES_MOBILE_NETWORK must be tailscale, lan, relay, or a URL" }
 Hermes config set dashboard.public_url $PublicUrl | Out-Null
 Note "Your phone will connect to $PublicUrl"
 
@@ -250,6 +278,21 @@ if ($env:HERMES_MOBILE_PUSH -ne "0") {
   }
 }
 
+if ($Network -eq "relay") {
+  Step "Relay connector"
+  $node = Get-ChildItem (Join-Path $HermesHome "tools") -Filter "node.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -Last 1
+  $nodePath = if ($node) { $node.FullName } else { (Get-Command node -ErrorAction SilentlyContinue).Source }
+  if (-not $nodePath) { Fail "the relay connector needs Node.js 22+ (Hermes normally ships one)." }
+  $connectorDir = Join-Path $HermesHome "mobile-relay-connector"
+  New-Item -ItemType Directory -Force -Path $connectorDir | Out-Null
+  Copy-Item -Force (Join-Path $Source "server\connector\connector.mjs") $connectorDir
+  RegisterTask $ConnectorTask $nodePath "'$(Join-Path $connectorDir 'connector.mjs')'" @{ RELAY_URL = $RelayUrl; RELAY_TOKEN = $RelayToken; RELAY_HOST_ID = $RelayHostId; HERMES_URL = "http://127.0.0.1:$Port" }
+  Note "Connector running; it only connects while Hermes requires sign-in."
+} else {
+  Stop-ScheduledTask -TaskName $ConnectorTask -ErrorAction SilentlyContinue
+  Unregister-ScheduledTask -TaskName $ConnectorTask -Confirm:$false -ErrorAction SilentlyContinue
+}
+
 # -- 6. Optional: voice ----------------------------------------------------------------------------
 if (Flag "HERMES_MOBILE_VOICE") {
   Step "ElevenLabs voice for every bot"
@@ -301,6 +344,13 @@ Stop-ScheduledTask -TaskName $DashTask -ErrorAction SilentlyContinue
 Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 Start-ScheduledTask -TaskName $DashTask
 if (-not (WaitForDashboard)) { Fail "the dashboard didn't come back (see $LogDir)" }
+# Everything past this PC must meet a sign-in page; an ungated Hermes hands out its session token.
+$status = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "http://127.0.0.1:$Port/api/status"
+if ($status.Content -notmatch '"auth_required":\s*true') {
+  Stop-ScheduledTask -TaskName $ConnectorTask -ErrorAction SilentlyContinue
+  Unregister-ScheduledTask -TaskName $ConnectorTask -Confirm:$false -ErrorAction SilentlyContinue
+  Fail "Hermes isn't requiring sign-in, so it wasn't exposed. Check HERMES_DASHBOARD_BASIC_AUTH_* in $EnvFile and dashboard.public_url."
+}
 try {
   $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
   $body = @{ provider = "basic"; username = $User; password = $Password } | ConvertTo-Json -Compress

@@ -1,0 +1,28 @@
+# Self-host the Hermes Mobile relay with automatic HTTPS:
+#   1. Point a DNS name (e.g. relay.example.com) at this server; open ports 80 and 443.
+#   2. Create .env next to this file:
+#        RELAY_DOMAIN=relay.example.com
+#        RELAY_TOKEN=<a long random secret, e.g. from: openssl rand -hex 32>
+#   3. docker compose up -d
+# Then on each computer running Hermes:
+#   curl -fsSL https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.sh \
+#     | bash -s -- --network relay --relay-url https://relay.example.com --relay-token <the same secret>
+services:
+  relay:
+    build: .
+    restart: unless-stopped
+    environment:
+      RELAY_TOKEN: ${RELAY_TOKEN:?set RELAY_TOKEN in .env}
+      RELAY_TRUST_PROXY: "1"
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [relay]
+    ports: ["80:80", "443:443"]
+    environment:
+      RELAY_DOMAIN: ${RELAY_DOMAIN:?set RELAY_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+volumes:
+  caddy_data:

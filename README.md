@@ -18,7 +18,7 @@ curl -fsSL https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/in
 irm https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.ps1 | iex
 ```
 
-The installer adds the `hermes-mobile` Hermes plugin, runs the Hermes dashboard as a service that starts at boot (with a generated password), makes it reachable from your phone (Tailscale by default, or your local network, or your own URL), sets up push notifications, and opens a pairing page. Scan its QR code with your phone's Camera and Hermes Mobile opens connected. Options: `--voice`, `--onepassword`, `--real-browser <bot>`, `--network lan|<url>`, `--pair`, `--uninstall` (Windows: environment variables, see the [guide](https://michaeldimuro.github.io/hermes-mobile/get-started.html)). Re-running upgrades in place and keeps paired phones connected.
+The installer adds the `hermes-mobile` Hermes plugin, runs the Hermes dashboard as a service that starts at boot (with a generated password), makes it reachable from your phone (Tailscale by default, your local network, a [relay you host](docs/relay.md), or your own URL), sets up push notifications, and opens a pairing page. Scan its QR code with your phone's Camera and Hermes Mobile opens connected. Options: `--voice`, `--onepassword`, `--real-browser <bot>`, `--network lan|relay|<url>`, `--pair`, `--uninstall` (Windows: environment variables, see the [guide](https://michaeldimuro.github.io/hermes-mobile/get-started.html)). Re-running upgrades in place and keeps paired phones connected.
 
 ## What you get
 
@@ -36,6 +36,8 @@ The installer adds the `hermes-mobile` Hermes plugin, runs the Hermes dashboard 
 | [`server/plugin/`](server/plugin) | `hermes-mobile` Hermes plugin: the app's API (capabilities, browser screen share), the `browser_handoff` tool, browsers kept alive between turns |
 | [`server/push-relay/`](server/push-relay) | Push-notification relay (runs on Hermes' bundled Node.js) |
 | [`server/launcher-macos/`](server/launcher-macos) | Hermes.app, the macOS launcher that holds Full Disk Access |
+| [`server/connector/`](server/connector) | Relay connector: dials out from the Hermes computer to your relay |
+| [`relay/`](relay) | Self-hostable relay (Docker + automatic HTTPS): reach Hermes with no VPN and no open ports ([guide](docs/relay.md)) |
 | [`install/`](install) | `install.sh` (macOS, Linux) and `install.ps1` (Windows) |
 | [`website/`](website) | The website (GitHub Pages) |
 | [`docs/`](docs) | [Architecture](docs/architecture.md), [security](docs/security.md), [networking](docs/networking.md), [self-build](docs/self-build.md) |

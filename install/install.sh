@@ -5,7 +5,9 @@
 #   curl -fsSL .../install.sh | bash -s -- [options]
 #
 # Options:
-#   --network tailscale|lan|<https-url>   how the phone reaches Hermes (default: tailscale if installed, else lan)
+#   --network tailscale|lan|relay|<url>   how the phone reaches Hermes (default: tailscale if installed, else lan)
+#   --relay-url <https-url>               your self-hosted relay (with --network relay; see relay/)
+#   --relay-token <secret>                the relay's RELAY_TOKEN (asked for, hidden, when omitted)
 #   --port N                              dashboard port (default 9119)
 #   --voice                               ElevenLabs voice for every bot (needs ELEVENLABS_API_KEY in ~/.hermes/.env)
 #   --onepassword                         headless 1Password for every bot (asks for a service-account token)
@@ -37,9 +39,12 @@ PAIR_ONLY=0
 UNINSTALL=0
 ASSUME_YES=0
 SOURCE=""
+RELAY_URL_ARG=""
+RELAY_TOKEN_ARG=""
 
 DASH_LABEL="com.hermes.shared-dashboard"
 PUSH_LABEL="com.hermes.mobile-push-relay"
+CONNECTOR_LABEL="com.hermes.mobile-relay-connector"
 LAUNCHER_APP="$HOME/Applications/Hermes.app"
 LAUNCHER_EXE="$LAUNCHER_APP/Contents/MacOS/Hermes"
 LOG_DIR="$HERMES_HOME/logs"
@@ -64,6 +69,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --network) NETWORK="${2:?--network needs tailscale, lan or a URL}"; shift ;;
     --port) PORT="${2:?--port needs a number}"; shift ;;
+    --relay-url) RELAY_URL_ARG="${2:?--relay-url needs a URL}"; shift ;;
+    --relay-token) RELAY_TOKEN_ARG="${2:?--relay-token needs the secret}"; shift ;;
     --voice) VOICE=1 ;;
     --onepassword) ONEPASSWORD=1 ;;
     --real-browser) REAL_BROWSER="$REAL_BROWSER ${2:?--real-browser needs a bot name}"; shift ;;
@@ -92,9 +99,9 @@ done
 [ -n "$HERMES_BIN" ] || die "Hermes isn't installed (no 'hermes' command). Install Hermes Agent first: https://hermes-agent.nousresearch.com/docs/"
 hermes() { "$HERMES_BIN" "$@" 2>/dev/null | grep -v '1Password:' || true; }
 
-env_get() { # env_get FILE KEY
+env_get() { # env_get FILE KEY -> value, or nothing (never fails: callers run under set -e)
   [ -f "$1" ] || return 0
-  grep -E "^$2=" "$1" 2>/dev/null | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+  { grep -E "^$2=" "$1" 2>/dev/null || true; } | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
 }
 env_set() { # env_set FILE KEY VALUE (0600, replaces the key)
   local file="$1" key="$2" value="$3" tmp
@@ -111,6 +118,18 @@ env_unset() {
   grep -v "^$2=" "$1" > "$tmp" || true
   mv "$tmp" "$1"; chmod 600 "$1"
 }
+
+# Local addresses make Hermes drop its sign-in gate; never publish one.
+is_local_url() {
+  case "$1" in
+    http://localhost*|https://localhost*|http://127.*|https://127.*|http://\[::1\]*|https://\[::1\]*|http://0.0.0.0*|https://0.0.0.0*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# random CHARSET LENGTH: head closes the pipe early, so tr dies of SIGPIPE; under pipefail that would
+# abort the script, hence the || true.
+random() { LC_ALL=C tr -dc "$1" < /dev/urandom 2>/dev/null | head -c "$2" || true; }
 
 # Every Hermes profile home: the default one plus ~/.hermes/profiles/*.
 profiles() {
@@ -140,6 +159,74 @@ wait_for_dashboard() {
     sleep 2
   done
   return 1
+}
+
+# A small Node service next to Hermes (push relay, relay connector): launchd agent on macOS, systemd user
+# unit on Linux; both start at boot and restart if they stop. SVC_ENV holds its KEY=VALUE lines.
+SVC_ENV=""
+node_service() { # node_service MAC_LABEL LINUX_UNIT DESCRIPTION SCRIPT LOGNAME
+  local label="$1" unit="$2" description="$3" script="$4" logname="$5" node env_xml="" env_unit="" pair
+  node="$(node_bin)"
+  while IFS= read -r pair; do
+    [ -n "$pair" ] || continue
+    env_xml="$env_xml<key>${pair%%=*}</key><string>${pair#*=}</string>"
+    env_unit="${env_unit}Environment=$pair
+"
+  done <<ENVLINES
+$SVC_ENV
+ENVLINES
+  if [ "$OS" = Darwin ]; then
+    local plist="$HOME/Library/LaunchAgents/$label.plist"
+    mkdir -p "$HOME/Library/LaunchAgents"
+    cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>$label</string>
+  <key>ProgramArguments</key><array><string>$node</string><string>$script</string></array>
+  <key>EnvironmentVariables</key><dict>$env_xml</dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>$LOG_DIR/$logname.log</string>
+  <key>StandardErrorPath</key><string>$LOG_DIR/$logname.log</string>
+</dict></plist>
+PLIST
+    chmod 600 "$plist"
+    launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null && break; sleep 1; done
+  else
+    local dir="$HOME/.config/systemd/user"
+    mkdir -p "$dir"
+    cat > "$dir/$unit" <<UNIT
+[Unit]
+Description=$description
+After=hermes-mobile-dashboard.service
+
+[Service]
+ExecStart=$node $script
+${env_unit}Restart=always
+RestartSec=30
+StandardOutput=append:$LOG_DIR/$logname.log
+StandardError=append:$LOG_DIR/$logname.log
+
+[Install]
+WantedBy=default.target
+UNIT
+    chmod 600 "$dir/$unit"
+    systemctl --user daemon-reload
+    systemctl --user enable "$unit" >/dev/null 2>&1
+    systemctl --user restart "$unit"
+  fi
+}
+remove_service() { # remove_service MAC_LABEL LINUX_UNIT
+  if [ "$OS" = Darwin ]; then
+    launchctl bootout "gui/$(id -u)/$1" 2>/dev/null || true
+    rm -f "$HOME/Library/LaunchAgents/$1.plist"
+  else
+    systemctl --user disable --now "$2" 2>/dev/null || true
+    rm -f "$HOME/.config/systemd/user/$2"
+  fi
 }
 
 # ── Credentials & pairing ─────────────────────────────────────────────────────────────────────────
@@ -175,22 +262,20 @@ if [ "$PAIR_ONLY" = 1 ]; then show_pairing; exit 0; fi
 # ── Uninstall ─────────────────────────────────────────────────────────────────────────────────────
 uninstall() {
   step "Removing Hermes Mobile"
+  remove_service "$CONNECTOR_LABEL" hermes-mobile-connector.service
+  remove_service "$PUSH_LABEL" hermes-mobile-push.service
+  remove_service "$DASH_LABEL" hermes-mobile-dashboard.service
   if [ "$OS" = Darwin ]; then
-    for label in "$PUSH_LABEL" "$DASH_LABEL"; do
-      launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
-      rm -f "$HOME/Library/LaunchAgents/$label.plist"
-    done
     rm -rf "$LAUNCHER_APP"
     note "Removed the services and Hermes.app (also remove Hermes from Full Disk Access)."
   else
-    systemctl --user disable --now hermes-mobile-dashboard.service hermes-mobile-push.service 2>/dev/null || true
-    rm -f "$HOME/.config/systemd/user/hermes-mobile-dashboard.service" "$HOME/.config/systemd/user/hermes-mobile-push.service"
     systemctl --user daemon-reload 2>/dev/null || true
     note "Removed the systemd user services."
   fi
   command -v tailscale >/dev/null 2>&1 && tailscale serve --https=443 off >/dev/null 2>&1 || true
   hermes plugins disable hermes-mobile >/dev/null
-  rm -rf "$HERMES_HOME/plugins/hermes-mobile" "$HERMES_HOME/mobile-push-relay"
+  rm -rf "$HERMES_HOME/plugins/hermes-mobile" "$HERMES_HOME/mobile-push-relay" "$HERMES_HOME/mobile-relay-connector"
+  for key in HERMES_MOBILE_RELAY_URL HERMES_MOBILE_RELAY_TOKEN HERMES_MOBILE_RELAY_HOST_ID; do env_unset "$ENV_FILE" "$key"; done
   env_unset "$ENV_FILE" HERMES_DASHBOARD_BASIC_AUTH_USERNAME
   env_unset "$ENV_FILE" HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
   env_unset "$ENV_FILE" HERMES_DASHBOARD_BASIC_AUTH_SECRET
@@ -203,9 +288,9 @@ if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
 bold "Hermes Mobile installer"
 
 # Version check: the plugin hooks into a few Hermes internals; tested with $TESTED_HERMES.x.
-HERMES_VERSION="$(hermes --version | head -1 | sed -nE 's/.*v([0-9]+\.[0-9]+).*/\1/p')"
+HERMES_VERSION="$(hermes --version | sed -n 1p | sed -nE 's/.*v([0-9]+\.[0-9]+).*/\1/p')"
 note "Hermes $HERMES_VERSION at $HERMES_BIN"
-if [ -n "$HERMES_VERSION" ] && [ "$(printf '%s\n%s\n' "$TESTED_HERMES" "$HERMES_VERSION" | sort -V | head -1)" != "$TESTED_HERMES" ]; then
+if [ -n "$HERMES_VERSION" ] && [ "$(printf '%s\n%s\n' "$TESTED_HERMES" "$HERMES_VERSION" | sort -V | sed -n 1p)" != "$TESTED_HERMES" ]; then
   warn "Hermes $HERMES_VERSION is older than the tested $TESTED_HERMES; update Hermes if something doesn't work."
 fi
 
@@ -219,7 +304,7 @@ if [ -z "$SOURCE" ]; then
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
   curl -fsSL "https://codeload.github.com/$REPO/tar.gz/$REF" | tar -xz -C "$TMP"
-  SOURCE="$(ls -d "$TMP"/*/ | head -1)"
+  SOURCE="$(ls -d "$TMP"/*/ | sed -n 1p)"
   SOURCE="${SOURCE%/}"
 fi
 [ -d "$SOURCE/server/plugin" ] || die "couldn't find server/plugin in $SOURCE"
@@ -241,14 +326,14 @@ note "Installed to $HERMES_HOME/plugins/hermes-mobile and enabled."
 step "Dashboard sign-in"
 if [ -z "$USERNAME_VALUE" ]; then USERNAME_VALUE="hermes"; env_set "$ENV_FILE" HERMES_DASHBOARD_BASIC_AUTH_USERNAME "$USERNAME_VALUE"; fi
 if [ -z "$PASSWORD_VALUE" ]; then
-  PASSWORD_VALUE="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)"
+  PASSWORD_VALUE="$(random 'A-Za-z0-9' 24)"
   env_set "$ENV_FILE" HERMES_DASHBOARD_BASIC_AUTH_PASSWORD "$PASSWORD_VALUE"
   note "Generated a password for user '$USERNAME_VALUE'."
 else
   note "Keeping the existing password for user '$USERNAME_VALUE' (paired phones stay connected)."
 fi
 if [ -z "$(env_get "$ENV_FILE" HERMES_DASHBOARD_BASIC_AUTH_SECRET)" ]; then
-  env_set "$ENV_FILE" HERMES_DASHBOARD_BASIC_AUTH_SECRET "$(LC_ALL=C tr -dc 'a-f0-9' < /dev/urandom | head -c 64)"
+  env_set "$ENV_FILE" HERMES_DASHBOARD_BASIC_AUTH_SECRET "$(random 'a-f0-9' 64)"
 fi
 if [ "$OS" = Darwin ]; then
   security add-generic-password -U -a "$USERNAME_VALUE" -s "hermes-shared-backend" -w "$PASSWORD_VALUE" >/dev/null 2>&1 || true
@@ -265,7 +350,7 @@ HOST="127.0.0.1"
 case "$NETWORK" in
   tailscale)
     [ -n "$TAILSCALE" ] || die "Tailscale isn't installed. Install it (https://tailscale.com/download) and sign in, or use --network lan."
-    DNS="$("$TAILSCALE" status --json 2>/dev/null | sed -nE 's/.*"DNSName": *"([^"]+)".*/\1/p' | head -1 | sed 's/\.$//')"
+    DNS="$("$TAILSCALE" status --json 2>/dev/null | sed -nE 's/.*"DNSName": *"([^"]+)".*/\1/p' | sed -n 1p | sed 's/\.$//')"
     [ -n "$DNS" ] || die "Tailscale isn't signed in. Sign in (tailscale up), then re-run."
     PUBLIC_URL="https://$DNS"
     ;;
@@ -277,11 +362,33 @@ case "$NETWORK" in
     PUBLIC_URL="http://$IP:$PORT"
     warn "LAN mode is plain HTTP on your local network; only use it on networks you trust."
     ;;
+  relay)
+    RELAY_URL="${RELAY_URL_ARG:-$(env_get "$ENV_FILE" HERMES_MOBILE_RELAY_URL)}"
+    RELAY_URL="${RELAY_URL%/}"
+    case "$RELAY_URL" in https://*|http://*) ;; *) die "--network relay needs --relay-url https://your-relay (see relay/ in the repo)" ;; esac
+    is_local_url "$RELAY_URL" && die "the relay must have a public address, not $RELAY_URL: Hermes turns sign-in off when its public address is local."
+    RELAY_TOKEN="${RELAY_TOKEN_ARG:-$(env_get "$ENV_FILE" HERMES_MOBILE_RELAY_TOKEN)}"
+    if [ -z "$RELAY_TOKEN" ] && [ -r /dev/tty ]; then
+      printf "    Relay token (the relay's RELAY_TOKEN, hidden): " > /dev/tty
+      read -rs RELAY_TOKEN < /dev/tty || true
+      printf '\n' > /dev/tty
+    fi
+    [ -n "$RELAY_TOKEN" ] || die "--network relay needs --relay-token"
+    curl -fsS -m 10 "$RELAY_URL/healthz" 2>/dev/null | grep -q hermes-mobile-relay || warn "Couldn't reach a Hermes Mobile relay at $RELAY_URL; continuing."
+    # Keep the host id across re-runs so paired phones keep working.
+    RELAY_HOST_ID="$(env_get "$ENV_FILE" HERMES_MOBILE_RELAY_HOST_ID)"
+    [ -n "$RELAY_HOST_ID" ] || RELAY_HOST_ID="$(random 'a-z0-9' 20)"
+    env_set "$ENV_FILE" HERMES_MOBILE_RELAY_URL "$RELAY_URL"
+    env_set "$ENV_FILE" HERMES_MOBILE_RELAY_TOKEN "$RELAY_TOKEN"
+    env_set "$ENV_FILE" HERMES_MOBILE_RELAY_HOST_ID "$RELAY_HOST_ID"
+    PUBLIC_URL="$RELAY_URL/h/$RELAY_HOST_ID"
+    ;;
   http://*|https://*)
+    is_local_url "$NETWORK" && die "use an address your phone can reach, not $NETWORK: Hermes turns sign-in off when its public address is local."
     PUBLIC_URL="${NETWORK%/}"
     note "Point your proxy or tunnel at http://127.0.0.1:$PORT."
     ;;
-  *) die "--network must be tailscale, lan, or a URL" ;;
+  *) die "--network must be tailscale, lan, relay, or a URL" ;;
 esac
 hermes config set dashboard.public_url "$PUBLIC_URL" >/dev/null
 note "Your phone will connect to $PUBLIC_URL"
@@ -376,65 +483,41 @@ fi
 wait_for_dashboard || die "the dashboard didn't come up (see $LOG_DIR/shared-dashboard.log)"
 note "Dashboard is running."
 
-# ── 5. Push relay ─────────────────────────────────────────────────────────────────────────────────
+# ── 5. Push relay and relay connector ────────────────────────────────────────────────────────────
+if [ -n "$(node_bin)" ]; then HAVE_NODE=1; else HAVE_NODE=0; fi
 if [ "$PUSH" = 1 ]; then
   step "Push-notification relay"
-  NODE="$(node_bin)"
-  if [ -z "$NODE" ]; then
+  if [ "$HAVE_NODE" = 0 ]; then
     warn "No Node.js 22+ found (Hermes normally ships one in ~/.hermes/tools) — skipping push notifications."
   else
-    RELAY_DIR="$HERMES_HOME/mobile-push-relay"
-    mkdir -p "$RELAY_DIR"
-    cp "$SOURCE/server/push-relay/relay.mjs" "$RELAY_DIR/relay.mjs"
-    if [ "$OS" = Darwin ]; then
-      PLIST="$HOME/Library/LaunchAgents/$PUSH_LABEL.plist"
-      cat > "$PLIST" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>Label</key><string>$PUSH_LABEL</string>
-  <key>ProgramArguments</key><array><string>$NODE</string><string>$RELAY_DIR/relay.mjs</string></array>
-  <key>EnvironmentVariables</key><dict>
-    <key>HERMES_URL</key><string>http://127.0.0.1:$PORT</string>
-    <key>HERMES_USERNAME</key><string>$USERNAME_VALUE</string>
-    <key>HERMES_PASSWORD</key><string>$PASSWORD_VALUE</string>
-  </dict>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>ThrottleInterval</key><integer>30</integer>
-  <key>StandardOutPath</key><string>$LOG_DIR/mobile-push-relay.log</string>
-  <key>StandardErrorPath</key><string>$LOG_DIR/mobile-push-relay.log</string>
-</dict></plist>
-PLIST
-      chmod 600 "$PLIST"
-      launchctl bootout "gui/$(id -u)/$PUSH_LABEL" 2>/dev/null || true
-      for _ in 1 2 3 4 5 6 7 8 9 10; do launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null && break; sleep 1; done
-    else
-      cat > "$UNIT_DIR/hermes-mobile-push.service" <<UNIT
-[Unit]
-Description=Hermes Mobile push-notification relay
-After=hermes-mobile-dashboard.service
-
-[Service]
-ExecStart=$NODE $RELAY_DIR/relay.mjs
-Environment=HERMES_URL=http://127.0.0.1:$PORT
-Environment=HERMES_USERNAME=$USERNAME_VALUE
-Environment=HERMES_PASSWORD=$PASSWORD_VALUE
-Restart=always
-RestartSec=30
-StandardOutput=append:$LOG_DIR/mobile-push-relay.log
-StandardError=append:$LOG_DIR/mobile-push-relay.log
-
-[Install]
-WantedBy=default.target
-UNIT
-      chmod 600 "$UNIT_DIR/hermes-mobile-push.service"
-      systemctl --user daemon-reload
-      systemctl --user enable hermes-mobile-push.service >/dev/null 2>&1
-      systemctl --user restart hermes-mobile-push.service
-    fi
-    note "Relay running with $NODE. Turn notifications on in the app: Settings → Notifications."
+    mkdir -p "$HERMES_HOME/mobile-push-relay"
+    cp "$SOURCE/server/push-relay/relay.mjs" "$HERMES_HOME/mobile-push-relay/relay.mjs"
+    SVC_ENV="HERMES_URL=http://127.0.0.1:$PORT
+HERMES_USERNAME=$USERNAME_VALUE
+HERMES_PASSWORD=$PASSWORD_VALUE"
+    node_service "$PUSH_LABEL" hermes-mobile-push.service "Hermes Mobile push-notification relay" \
+      "$HERMES_HOME/mobile-push-relay/relay.mjs" mobile-push-relay
+    note "Relay running with $(node_bin). Turn notifications on in the app: Settings → Notifications."
   fi
+fi
+
+if [ "$NETWORK" = relay ]; then
+  step "Relay connector"
+  [ "$HAVE_NODE" = 1 ] || die "the relay connector needs Node.js 22+ (Hermes normally ships one in ~/.hermes/tools)."
+  mkdir -p "$HERMES_HOME/mobile-relay-connector"
+  cp "$SOURCE/server/connector/connector.mjs" "$HERMES_HOME/mobile-relay-connector/connector.mjs"
+  : > "$LOG_DIR/mobile-relay-connector.log"
+  SVC_ENV="RELAY_URL=$RELAY_URL
+RELAY_TOKEN=$RELAY_TOKEN
+RELAY_HOST_ID=$RELAY_HOST_ID
+HERMES_URL=http://127.0.0.1:$PORT"
+  node_service "$CONNECTOR_LABEL" hermes-mobile-connector.service "Hermes Mobile relay connector" \
+    "$HERMES_HOME/mobile-relay-connector/connector.mjs" mobile-relay-connector
+  for _ in $(seq 1 15); do grep -q "connected:" "$LOG_DIR/mobile-relay-connector.log" 2>/dev/null && break; sleep 1; done
+  if grep -q "connected:" "$LOG_DIR/mobile-relay-connector.log" 2>/dev/null; then note "Connected to $RELAY_URL."
+  else warn "The connector hasn't reached the relay yet; see $LOG_DIR/mobile-relay-connector.log"; fi
+else
+  remove_service "$CONNECTOR_LABEL" hermes-mobile-connector.service
 fi
 
 # ── 6. Optional: voice ────────────────────────────────────────────────────────────────────────────
@@ -505,6 +588,11 @@ step "Checking"
 if [ "$OS" = Darwin ]; then launchctl kickstart -k "gui/$(id -u)/$DASH_LABEL" >/dev/null 2>&1 || true
 else systemctl --user restart hermes-mobile-dashboard.service; fi
 wait_for_dashboard || die "the dashboard didn't come back (see $LOG_DIR/shared-dashboard.log)"
+# Everything past this computer must meet a sign-in page; an ungated Hermes hands out its session token.
+if ! curl -s -m 5 "http://127.0.0.1:$PORT/api/status" | grep -q '"auth_required": *true'; then
+  remove_service "$CONNECTOR_LABEL" hermes-mobile-connector.service
+  die "Hermes isn't requiring sign-in, so it wasn't exposed. Check HERMES_DASHBOARD_BASIC_AUTH_* in $ENV_FILE and dashboard.public_url."
+fi
 JAR="$(mktemp)"
 LOGIN_BODY="{\"provider\":\"basic\",\"username\":\"$(json_escape "$USERNAME_VALUE")\",\"password\":\"$(json_escape "$PASSWORD_VALUE")\"}"
 if curl -s -m 10 -c "$JAR" -H 'Content-Type: application/json' -d "$LOGIN_BODY" "http://127.0.0.1:$PORT/auth/password-login" -o /dev/null -w '%{http_code}' | grep -q '^2' \

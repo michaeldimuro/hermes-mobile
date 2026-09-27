@@ -1,0 +1,4 @@
+# Caddy gets and renews the HTTPS certificate for your domain automatically.
+{$RELAY_DOMAIN} {
+	reverse_proxy relay:8080
+}

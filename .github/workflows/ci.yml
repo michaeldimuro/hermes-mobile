@@ -38,6 +38,26 @@ jobs:
           node-version: 22
       - run: node --check server/push-relay/relay.mjs
 
+  relay:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: relay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node --check server.mjs && node --check ../server/connector/connector.mjs
+      - run: npm test
+      - run: docker build -t hermes-mobile-relay .
+      - name: Container starts and answers health checks
+        run: |
+          docker run -d --name relay -p 8080:8080 -e RELAY_TOKEN=ci-relay-token-0123456789 hermes-mobile-relay
+          for i in $(seq 1 20); do curl -fs http://127.0.0.1:8080/healthz && break; sleep 1; done
+          curl -fs http://127.0.0.1:8080/healthz | grep -q hermes-mobile-relay
+
   installer-unix:
     runs-on: ubuntu-latest
     steps:
