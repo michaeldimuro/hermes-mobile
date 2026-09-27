@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Get started · Hermes Mobile</title>
+  <meta name="description" content="Set up Hermes Mobile: run one installer on the computer running Hermes Agent, install the app, and pair by scanning a QR code.">
+  <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0f15" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <nav class="container nav" aria-label="Main">
+      <a class="brand" href="index.html"><img src="favicon.svg" alt="" width="28" height="28"> Hermes Mobile</a>
+      <ul>
+        <li><a class="navlink" href="index.html">Home</a></li>
+        <li><a class="navlink" href="get-started.html" aria-current="page">Get started</a></li>
+        <li><a class="navlink" href="troubleshooting.html">Troubleshooting</a></li>
+        <li><a class="navlink" href="security.html">Security</a></li>
+        <li><a class="navlink gh" href="https://github.com/michaeldimuro/hermes-mobile"><svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="container narrow">
+      <header class="page-head">
+        <span class="eyebrow">Setup guide</span>
+        <h1>Get started</h1>
+        <p class="lead">One command on the computer that runs Hermes, then a QR code scan on your phone. Plan on about five minutes.</p>
+      </header>
+
+      <ol class="steps">
+        <li class="step" id="prerequisites">
+          <span class="step-num" aria-hidden="true">0</span>
+          <h2>Before you begin</h2>
+          <ul class="tight">
+            <li><strong>Hermes Agent installed and working</strong> on your Mac, Linux or Windows computer. If you haven't set it up yet, follow the <a href="https://hermes-agent.nousresearch.com/docs/">Hermes Agent docs</a> first.</li>
+            <li><strong>To use it away from home (recommended):</strong> install <a href="https://tailscale.com/download">Tailscale</a> on both the computer and your phone, and sign in to the same account on both. The personal plan is free.</li>
+            <li>Without Tailscale, the phone can reach Hermes only on the same Wi-Fi, or through your own HTTPS URL. See <a href="https://github.com/michaeldimuro/hermes-mobile/blob/main/docs/networking.md">networking options</a>.</li>
+          </ul>
+        </li>
+
+        <li class="step" id="install">
+          <span class="step-num" aria-hidden="true">1</span>
+          <h2>Run the installer on your computer</h2>
+          <p>Open a terminal on the computer running Hermes and paste the command for your system.</p>
+
+          <div class="tabs" data-tabs>
+            <div class="tablist" role="tablist" aria-label="Operating system">
+              <button type="button" role="tab" id="tab-mac" data-os="macos" aria-selected="true" aria-controls="panel-mac">macOS</button>
+              <button type="button" role="tab" id="tab-linux" data-os="linux" aria-selected="false" aria-controls="panel-linux" tabindex="-1">Linux</button>
+              <button type="button" role="tab" id="tab-win" data-os="windows" aria-selected="false" aria-controls="panel-win" tabindex="-1">Windows</button>
+            </div>
+            <div class="tabpanel" role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" tabindex="0">
+              <p>In Terminal:</p>
+              <div class="code"><pre><code>curl -fsSL https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.sh | bash</code></pre></div>
+              <p class="muted">The dashboard runs as a launchd agent, and the installer builds <code>~/Applications/Hermes.app</code> (see step 2).</p>
+            </div>
+            <div class="tabpanel" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" tabindex="0" hidden>
+              <p>In a terminal:</p>
+              <div class="code"><pre><code>curl -fsSL https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.sh | bash</code></pre></div>
+              <p class="muted">The dashboard runs as a systemd user service.</p>
+            </div>
+            <div class="tabpanel" role="tabpanel" id="panel-win" aria-labelledby="tab-win" tabindex="0" hidden>
+              <p>In PowerShell:</p>
+              <div class="code"><pre><code>irm https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.ps1 | iex</code></pre></div>
+              <p class="muted">The dashboard runs as a Scheduled Task that starts when you sign in.</p>
+            </div>
+          </div>
+
+          <h3>What the installer does</h3>
+          <ul class="tight">
+            <li>Installs the <strong>hermes-mobile</strong> plugin into Hermes.</li>
+            <li>Runs the Hermes dashboard as a service that starts at boot (launchd on macOS, a systemd user service on Linux, a logon Scheduled Task on Windows), protected by a generated password.</li>
+            <li>Makes it reachable from your phone: Tailscale Serve (HTTPS) by default when Tailscale is installed, otherwise your local network.</li>
+            <li>Sets up the push-notification relay.</li>
+            <li>On macOS, builds <code>~/Applications/Hermes.app</code>.</li>
+            <li>Prints your connection details and opens your pairing page.</li>
+          </ul>
+          <p>It is safe to run again at any time; re-running upgrades everything in place. <code>--uninstall</code> removes everything it added.</p>
+
+          <h3>Options</h3>
+          <p>On macOS and Linux, pass flags after <code>bash -s --</code>:</p>
+          <div class="code"><pre><code>curl -fsSL https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.sh | bash -s -- --voice --onepassword</code></pre></div>
+          <p>On Windows, set environment variables first, in the same PowerShell window:</p>
+          <div class="code"><pre><code>$env:HERMES_MOBILE_NETWORK="lan"
+irm https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.ps1 | iex</code></pre></div>
+
+          <div class="table-wrap">
+            <table class="stack-table">
+              <caption class="visually-hidden">Installer options</caption>
+              <thead>
+                <tr><th scope="col">macOS / Linux flag</th><th scope="col">Windows variable</th><th scope="col">What it does</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="macOS / Linux"><code>--network tailscale</code><br><code>--network lan</code><br><code>--network https://your.url</code></td>
+                  <td data-label="Windows"><code>HERMES_MOBILE_NETWORK</code></td>
+                  <td data-label="What it does">How the phone reaches Hermes.</td>
+                </tr>
+                <tr>
+                  <td data-label="macOS / Linux"><code>--voice</code></td>
+                  <td data-label="Windows"><code>HERMES_MOBILE_VOICE=1</code></td>
+                  <td data-label="What it does">Set up ElevenLabs voice for every bot. Needs <code>ELEVENLABS_API_KEY</code> in <code>~/.hermes/.env</code>.</td>
+                </tr>
+                <tr>
+                  <td data-label="macOS / Linux"><code>--onepassword</code></td>
+                  <td data-label="Windows"><code>HERMES_MOBILE_ONEPASSWORD=1</code></td>
+                  <td data-label="What it does">Give every bot headless 1Password access with a service-account token. You'll be asked to paste it; the input is hidden.</td>
+                </tr>
+                <tr>
+                  <td data-label="macOS / Linux"><code>--real-browser &lt;bot&gt;</code></td>
+                  <td data-label="Windows"><code>HERMES_MOBILE_REAL_BROWSER=&lt;bot&gt;</code></td>
+                  <td data-label="What it does">Let that bot use a copy of your real Chrome profile in a visible window, for Google SSO and similar. Opt-in: it shares your cookies with that bot.</td>
+                </tr>
+                <tr>
+                  <td data-label="macOS / Linux"><code>--no-push</code></td>
+                  <td data-label="Windows"><code>HERMES_MOBILE_PUSH=0</code></td>
+                  <td data-label="What it does">Skip the notification relay.</td>
+                </tr>
+                <tr>
+                  <td data-label="macOS / Linux"><code>--pair</code></td>
+                  <td data-label="Windows"><code>HERMES_MOBILE_PAIR=1</code></td>
+                  <td data-label="What it does">Only show the pairing page again.</td>
+                </tr>
+                <tr>
+                  <td data-label="macOS / Linux"><code>--uninstall</code></td>
+                  <td data-label="Windows"><code>HERMES_MOBILE_UNINSTALL=1</code></td>
+                  <td data-label="What it does">Remove everything the installer added.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </li>
+
+        <li class="step" id="full-disk-access">
+          <span class="step-num" aria-hidden="true">2</span>
+          <h2>macOS only: grant Full Disk Access</h2>
+          <p>Scripts your bots run otherwise trigger prompts like <em>"python3 would like to access data from other apps"</em>, and nobody is there to click Allow while you're away. The installer's <strong>Hermes.app</strong> launcher runs Hermes, so granting it access once covers everything Hermes starts.</p>
+          <ol class="tight">
+            <li>Open <strong>System Settings &rarr; Privacy &amp; Security &rarr; Full Disk Access</strong>.</li>
+            <li>Click <strong>+</strong>, then go to your home folder &rarr; <strong>Applications</strong> &rarr; <strong>Hermes</strong>, and click Open.</li>
+            <li>Make sure the switch next to Hermes is on.</li>
+          </ol>
+          <div class="callout warn">
+            <p><strong>Coming back after a reboot, unattended.</strong> Hermes starts when you log in. If the Mac must recover from a power cut or update with nobody at the keyboard, turn on automatic login, which requires FileVault to be off. That's a real trade-off: anyone with physical access to the Mac gets in and the disk isn't encrypted. Only do it if the Mac is somewhere you trust.</p>
+          </div>
+          <p class="muted">Full Disk Access means anything Hermes runs can read your files. See <a href="security.html">Security</a>.</p>
+        </li>
+
+        <li class="step" id="install-app">
+          <span class="step-num" aria-hidden="true">3</span>
+          <h2>Install the app</h2>
+          <h3>iPhone</h3>
+          <div class="placeholder">
+            <p><strong>TestFlight and App Store</strong> <span class="badge">Coming soon</span></p>
+            <p class="muted">A public download isn't available yet. This section will link to it when it is.</p>
+          </div>
+          <p>For now, build it yourself with a free Expo account: <a href="https://github.com/michaeldimuro/hermes-mobile/blob/main/docs/self-build.md">build Hermes Mobile yourself</a>.</p>
+          <h3>Android</h3>
+          <p>Build it yourself with the same guide: <a href="https://github.com/michaeldimuro/hermes-mobile/blob/main/docs/self-build.md">build Hermes Mobile yourself</a>.</p>
+        </li>
+
+        <li class="step" id="pair">
+          <span class="step-num" aria-hidden="true">4</span>
+          <h2>Pair your phone</h2>
+          <p>At the end of the install, your pairing page opens in the computer's browser with a QR code. <strong>Scan it with your phone's Camera app</strong> and Hermes Mobile opens, already connected.</p>
+          <p>Prefer typing? Open the app's <strong>Connect</strong> screen and enter the URL, username and password the installer printed.</p>
+          <p>Need the pairing page again later? Re-run the installer with <code>--pair</code> (Windows: <code>HERMES_MOBILE_PAIR=1</code>).</p>
+        </li>
+
+        <li class="step" id="extras">
+          <span class="step-num" aria-hidden="true">5</span>
+          <h2>Optional extras</h2>
+          <ul class="tight">
+            <li><strong>Voice mode:</strong> add <code>ELEVENLABS_API_KEY=...</code> to <code>~/.hermes/.env</code>, re-run the installer with <code>--voice</code>, then choose each bot's voice in the app.</li>
+            <li><strong>Screen share for sign-ins:</strong> works automatically once the plugin is installed. For Google sign-ins, re-run with <code>--real-browser &lt;bot&gt;</code> for the bot that needs it.</li>
+            <li><strong>1Password:</strong> re-run with <code>--onepassword</code> and paste a service-account token so every bot can read secrets without prompts.</li>
+            <li><strong>Push notifications:</strong> turn them on in the app under <strong>Settings &rarr; Notifications</strong>.</li>
+          </ul>
+          <p>Something not working? See <a href="troubleshooting.html">Troubleshooting</a>.</p>
+        </li>
+      </ol>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Hermes Mobile is open source under the MIT license. Hermes Agent is a project by Nous Research.</p>
+      <ul>
+        <li><a href="https://github.com/michaeldimuro/hermes-mobile">GitHub</a></li>
+        <li><a href="get-started.html">Get started</a></li>
+        <li><a href="troubleshooting.html">Troubleshooting</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </div>
+  </footer>
+  <script src="site.js"></script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Pair your phone · Hermes Mobile</title>
+  <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0f15" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <!-- Loaded first so the secret fragment is removed from the address bar immediately. -->
+  <script src="pair.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <nav class="container nav" aria-label="Main">
+      <a class="brand" href="index.html"><img src="favicon.svg" alt="" width="28" height="28"> Hermes Mobile</a>
+      <ul>
+        <li><a class="navlink" href="index.html">Home</a></li>
+        <li><a class="navlink" href="get-started.html">Get started</a></li>
+        <li><a class="navlink" href="troubleshooting.html">Troubleshooting</a></li>
+        <li><a class="navlink" href="security.html">Security</a></li>
+        <li><a class="navlink gh" href="https://github.com/michaeldimuro/hermes-mobile"><svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="container narrow">
+      <header class="page-head">
+        <span class="eyebrow">Pairing</span>
+        <h1>Pair your phone</h1>
+      </header>
+
+      <noscript>
+        <div class="callout warn"><p>This page needs JavaScript to draw your QR code. Nothing is sent anywhere; the code is generated in your browser. You can also type the URL, username and password the installer printed into the app's Connect screen.</p></div>
+      </noscript>
+
+      <section id="pair-ok" hidden aria-labelledby="pair-ok-h">
+        <h2 id="pair-ok-h" class="visually-hidden">Your pairing code</h2>
+        <div class="callout warn" role="note">
+          <p><strong>Anyone with this QR code can use your Hermes.</strong> Don't share or screenshot it; close this page when you're done.</p>
+        </div>
+
+        <div class="pair-card">
+          <div>
+            <div class="qr-box" id="qr"></div>
+            <p class="qr-caption" id="qr-caption">Scan with your phone's Camera app.</p>
+          </div>
+          <div>
+            <dl class="fields">
+              <div>
+                <dt>Server URL</dt>
+                <dd id="f-url"></dd>
+              </div>
+              <div>
+                <dt>Username</dt>
+                <dd id="f-user"></dd>
+              </div>
+              <div>
+                <dt id="pw-label">Password</dt>
+                <dd>
+                  <div class="secret-row">
+                    <span class="secret" id="f-pass" aria-labelledby="pw-label">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>
+                    <button type="button" class="btn-sm" id="pw-show" aria-pressed="false" aria-controls="f-pass">Show</button>
+                    <button type="button" class="btn-sm" id="pw-copy">Copy</button>
+                  </div>
+                </dd>
+              </div>
+            </dl>
+            <p class="status" id="status" role="status" aria-live="polite"></p>
+            <div class="btn-row">
+              <a class="btn btn-primary" id="open-app" href="#">Open in Hermes Mobile</a>
+              <button type="button" class="btn btn-secondary" id="done">I'm done</button>
+            </div>
+            <p class="muted hero-note">Opened this page on your phone? Tap <strong>Open in Hermes Mobile</strong> instead of scanning. On a computer, scan the code, or type these details into the app's Connect screen.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="pair-cleared" hidden>
+        <div class="callout">
+          <p><strong>Cleared.</strong> Your pairing details have been removed from this page. You can close this tab.</p>
+        </div>
+      </section>
+
+      <section id="pair-missing" hidden aria-labelledby="pair-missing-h">
+        <h2 id="pair-missing-h">No pairing code on this page</h2>
+        <p>This page shows a QR code only when the installer opens it for you, with your connection details attached to the link. The link was missing or incomplete, or you already closed it. That's fine: just ask the installer to show it again on the computer running Hermes.</p>
+        <h3>macOS and Linux</h3>
+        <div class="code"><pre><code>curl -fsSL https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.sh | bash -s -- --pair</code></pre></div>
+        <h3>Windows (PowerShell)</h3>
+        <div class="code"><pre><code>$env:HERMES_MOBILE_PAIR=1; irm https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.ps1 | iex</code></pre></div>
+        <p>Haven't installed yet? Start with the <a href="get-started.html">setup guide</a>.</p>
+      </section>
+
+      <p class="muted">Your connection details stay in this browser tab. They're kept in the part of the link after <code>#</code>, which browsers never send to a server, and this page has no analytics and makes no network requests with them.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Hermes Mobile is open source under the MIT license. Hermes Agent is a project by Nous Research.</p>
+      <ul>
+        <li><a href="https://github.com/michaeldimuro/hermes-mobile">GitHub</a></li>
+        <li><a href="get-started.html">Get started</a></li>
+        <li><a href="troubleshooting.html">Troubleshooting</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </div>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="site.js"></script>
+</body>
+</html>

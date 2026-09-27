@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security · Hermes Mobile</title>
+  <meta name="description" content="What Hermes Mobile exposes and how: direct connection to your own Hermes, pairing, screen share, 1Password, real-browser mode, Full Disk Access and uninstalling.">
+  <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0f15" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <nav class="container nav" aria-label="Main">
+      <a class="brand" href="index.html"><img src="favicon.svg" alt="" width="28" height="28"> Hermes Mobile</a>
+      <ul>
+        <li><a class="navlink" href="index.html">Home</a></li>
+        <li><a class="navlink" href="get-started.html">Get started</a></li>
+        <li><a class="navlink" href="troubleshooting.html">Troubleshooting</a></li>
+        <li><a class="navlink" href="security.html" aria-current="page">Security</a></li>
+        <li><a class="navlink gh" href="https://github.com/michaeldimuro/hermes-mobile"><svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a></li>
+      </ul>
+    </nav>
+  </header>
+
+    <main id="main">
+    <div class="container narrow">
+      <header class="page-head">
+        <span class="eyebrow">Security</span>
+        <h1>What's exposed, and how</h1>
+        <p class="lead">Hermes Mobile is a remote control for software on your own computer. Here's exactly what that opens up, so you can decide what you're comfortable with.</p>
+      </header>
+
+      <div class="sec-list">
+        <section class="sec-item" aria-labelledby="s-hosted">
+          <h2 id="s-hosted">Nothing is hosted by us</h2>
+          <p>There's no Hermes Mobile account and no server of ours in the middle. The phone talks directly to your Hermes dashboard over one of:</p>
+          <ul class="tight">
+            <li><strong>Tailscale</strong> (default): a private WireGuard network between your own devices, with HTTPS via Tailscale Serve. The dashboard isn't exposed to the internet.</li>
+            <li><strong>Your local network</strong>: plain HTTP on your Wi-Fi. Only use it on networks you trust.</li>
+            <li><strong>Your own HTTPS URL</strong>: for example a reverse proxy or tunnel you run.</li>
+          </ul>
+          <p>This website is static and only hosts documentation and the pairing page.</p>
+        </section>
+
+        <section class="sec-item" aria-labelledby="s-signin">
+          <h2 id="s-signin">Sign-in</h2>
+          <p>The app signs in with the dashboard's username and password. The installer generates a random password and stores it in <code>~/.hermes/.env</code> on your computer; on macOS it's also kept in the Keychain.</p>
+        </section>
+
+        <section class="sec-item" aria-labelledby="s-pairing">
+          <h2 id="s-pairing">The pairing link</h2>
+          <p>The pairing page receives your URL, username and password in the link's fragment (the part after <code>#</code>), which browsers never send to a server. The page removes it from the address bar and history as soon as it loads, draws the QR code locally, and makes no network requests with it. Anyone who sees the QR code can sign in to your Hermes, so don't share or screenshot it.</p>
+        </section>
+
+        <section class="sec-item" aria-labelledby="s-screen">
+          <h2 id="s-screen">Screen share</h2>
+          <p>The live view only shows, and relays mouse, keyboard and touch input to, browsers that Hermes itself opened. It runs over the same authenticated dashboard connection as everything else. It can't see or control the rest of your desktop.</p>
+        </section>
+
+        <section class="sec-item" aria-labelledby="s-1p">
+          <h2 id="s-1p">1Password (opt-in)</h2>
+          <p>The service account is read-only and scoped to the vaults you choose. <strong>Every bot's commands can read those vaults</strong>, so keep only items that are appropriate for bots to use there.</p>
+        </section>
+
+        <section class="sec-item" aria-labelledby="s-real">
+          <h2 id="s-real">Real-browser mode (opt-in, per bot)</h2>
+          <p><code>--real-browser &lt;bot&gt;</code> gives that bot a copy of your Chrome profile, including its cookies and signed-in sessions. That bot can then act as you on those sites. Enable it only for bots you trust with that.</p>
+        </section>
+
+        <section class="sec-item" aria-labelledby="s-fda">
+          <h2 id="s-fda">Full Disk Access on macOS</h2>
+          <p>Granting Full Disk Access to Hermes.app lets anything Hermes runs read your files without asking. That's the price of unattended operation. If you'd rather approve access case by case, skip it and accept the occasional prompt.</p>
+        </section>
+
+        <section class="sec-item" aria-labelledby="s-uninstall">
+          <h2 id="s-uninstall">Uninstalling</h2>
+          <p>Re-run the installer with <code>--uninstall</code> to remove everything it added: the plugin, the dashboard service, network setup, the push relay and Hermes.app.</p>
+          <div class="code"><pre><code>curl -fsSL https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.sh | bash -s -- --uninstall</code></pre></div>
+          <p>Windows (PowerShell):</p>
+          <div class="code"><pre><code>$env:HERMES_MOBILE_UNINSTALL=1; irm https://raw.githubusercontent.com/michaeldimuro/hermes-mobile/main/install/install.ps1 | iex</code></pre></div>
+          <p>On macOS, also remove Hermes from the Full Disk Access list. Then delete the app from your phone.</p>
+        </section>
+      </div>
+
+      <p class="also-h">Found a vulnerability? Please report it privately through <a href="https://github.com/michaeldimuro/hermes-mobile/security">GitHub security advisories</a> rather than a public issue.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Hermes Mobile is open source under the MIT license. Hermes Agent is a project by Nous Research.</p>
+      <ul>
+        <li><a href="https://github.com/michaeldimuro/hermes-mobile">GitHub</a></li>
+        <li><a href="get-started.html">Get started</a></li>
+        <li><a href="troubleshooting.html">Troubleshooting</a></li>
+        <li><a href="security.html">Security</a></li>
+      </ul>
+    </div>
+  </footer>
+  <script src="site.js"></script>
+</body>
+</html>
