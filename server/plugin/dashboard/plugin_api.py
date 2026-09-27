@@ -43,6 +43,27 @@ def _load_store():
 
 
 store = _load_store()
+
+
+def _load_compat():
+    name = "hermes_mobile_compat"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parent.parent / "compat.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+compat = _load_compat()
+
+
+def _require(feature: str) -> None:
+    if not compat.features().get(feature):
+        raise HTTPException(status_code=503, detail=(
+            "This Hermes version doesn't support that yet: " + "; ".join(compat.problems())
+            + ". Update the hermes-mobile plugin (re-run the installer)."))
 _INPUT_TYPES = {"input_mouse", "input_keyboard", "input_touch"}
 _MAX_INPUT_BYTES = 8192
 
@@ -68,11 +89,9 @@ async def capabilities():
     return {
         "plugin": "hermes-mobile",
         "version": VERSION,
-        "features": {
-            "browser_share": True,
-            "browser_handoff_tool": True,
-            "push_relay": _push_relay_seen(),
-        },
+        "features": {**compat.features(), "push_relay": _push_relay_seen()},
+        # Hermes internals this plugin needs that this Hermes no longer has (empty when all is well).
+        "problems": compat.problems(),
     }
 
 
@@ -93,6 +112,7 @@ def _task_keys(ids: List[str]) -> set:
 
 @router.get("/browser")
 async def chat_browser(session: List[str] = Query(default=[]), hold: bool = False):
+    _require("browser_share")
     keys = _task_keys(session)
     browsers = store.browser_sessions(keys)
     if hold:
@@ -127,6 +147,7 @@ class ViewportUpdate(BaseModel):
 
 @router.post("/viewport")
 async def set_viewport(body: ViewportUpdate):
+    _require("browser_share")
     width = max(320, min(1920, body.width))
     height = max(320, min(1400, body.height))
     ok = await asyncio.to_thread(store.set_viewport, body.task, width, height)
@@ -276,6 +297,9 @@ async def stream(ws: WebSocket, task: str = ""):
         return
     if not _ws_request_is_allowed(ws):
         await ws.close(code=4403)
+        return
+    if not compat.features().get("browser_share"):
+        await ws.close(code=4503, reason="unsupported Hermes version")
         return
     session = _session_for(task)
     if not session:

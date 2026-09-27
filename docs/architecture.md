@@ -53,3 +53,7 @@ Static site served by GitHub Pages. Includes `pair.html`, which receives connect
 1. The installer builds `{"v":1,"url":...,"username":...,"password":...}`, encodes it as unpadded base64url, and opens `https://michaeldimuro.github.io/hermes-mobile/pair.html#<payload>`.
 2. The page validates the payload, removes the fragment from history, and shows a QR code for `hermes://connect?d=<payload>`.
 3. Scanning the code opens the app, which decodes the payload and connects.
+
+## Hermes internals and compatibility
+
+Hermes has no public API for a few things the plugin needs, so it uses internal names: browser sessions and their keep-alive, the browser command runner, live chat sessions, WebSocket sign-in, the per-turn browser cleanup (skipped for local browsers so logins survive), the core tool list (so `browser_handoff` is always visible) and the interrupt flag. [`server/plugin/compat.py`](../server/plugin/compat.py) lists them and checks, by reading Hermes' source without importing it, that each still exists. When a Hermes update removes one, only the features that depend on it switch off: the plugin logs why, `GET /api/plugins/hermes-mobile/capabilities` reports them under `problems`, the installer prints them, and the app hides what the server can't back. Tested with Hermes Agent 0.21.

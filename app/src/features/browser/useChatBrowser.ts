@@ -8,7 +8,8 @@ type BrowserState = { handoffs: Handoff[]; browsers: { task_id: string }[] };
 
 const FAST_MS = 2500;
 const SLOW_MS = 12_000;
-const notInstalled = (error: unknown) => /not found|\(404\)/i.test(errorText(error, ""));
+/** No plugin (404), or a Hermes version the plugin can't drive a browser on (503): stop asking. */
+const notInstalled = (error: unknown) => /not found|\(404\)|doesn't support|\(503\)/i.test(errorText(error, ""));
 
 /**
  * The bot's browser for this chat, from the hermes-mobile Hermes plugin: an open handoff (the bot is

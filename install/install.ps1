@@ -357,6 +357,11 @@ try {
   Invoke-WebRequest -UseBasicParsing -WebSession $session -Method Post -ContentType "application/json" -Body $body "http://127.0.0.1:$Port/auth/password-login" | Out-Null
   $caps = Invoke-WebRequest -UseBasicParsing -WebSession $session "http://127.0.0.1:$Port/api/plugins/hermes-mobile/capabilities"
   if ($caps.Content -match '"hermes-mobile"') { Note "Sign-in and the hermes-mobile plugin work." } else { throw "no plugin" }
+  $problems = @(($caps.Content | ConvertFrom-Json).problems)
+  if ($problems.Count -gt 0) {
+    Warn "Some features are off on this Hermes version (update the plugin by re-running this installer later):"
+    $problems | ForEach-Object { Warn "  $_" }
+  }
 } catch { Warn "Couldn't confirm the plugin through the dashboard; check the logs in $LogDir." }
 
 ShowPairing

@@ -181,8 +181,10 @@ def set_viewport(task_id: str, width: int, height: int) -> bool:
     if sessions[0].get("cdp_url"):
         desired_viewport[task_id] = (int(width), int(height))
         return True
-    from tools.browser_tool_session import _run_browser_command
-
+    try:
+        from tools.browser_tool_session import _run_browser_command
+    except Exception:  # this Hermes has no such command path (compat.py reports it)
+        return False
     try:
         from tools.browser_tool_lifecycle import _session_owner_scope
     except Exception:

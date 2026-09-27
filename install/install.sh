@@ -596,8 +596,13 @@ fi
 JAR="$(mktemp)"
 LOGIN_BODY="{\"provider\":\"basic\",\"username\":\"$(json_escape "$USERNAME_VALUE")\",\"password\":\"$(json_escape "$PASSWORD_VALUE")\"}"
 if curl -s -m 10 -c "$JAR" -H 'Content-Type: application/json' -d "$LOGIN_BODY" "http://127.0.0.1:$PORT/auth/password-login" -o /dev/null -w '%{http_code}' | grep -q '^2' \
-   && curl -s -m 10 -b "$JAR" "http://127.0.0.1:$PORT/api/plugins/hermes-mobile/capabilities" | grep -q '"hermes-mobile"'; then
+   && CAPS="$(curl -s -m 10 -b "$JAR" "http://127.0.0.1:$PORT/api/plugins/hermes-mobile/capabilities")" \
+   && printf '%s' "$CAPS" | grep -q '"hermes-mobile"'; then
   note "Sign-in and the hermes-mobile plugin work."
+  if ! printf '%s' "$CAPS" | grep -q '"problems": *\[\]'; then
+    warn "Some features are off on this Hermes version (update the plugin by re-running this installer later):"
+    printf '%s' "$CAPS" | sed -n 's/.*"problems": *\[\(.*\)\].*/\1/p' | sed 's/", *"/\n/g; s/^ *"//; s/"$//' | sed 's/^/      /' >&2
+  fi
 else
   warn "Couldn't confirm the plugin through the dashboard; check $LOG_DIR/shared-dashboard.log."
 fi

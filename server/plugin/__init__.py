@@ -17,9 +17,12 @@ Two small adjustments to Hermes make this work for real sign-ins:
 from __future__ import annotations
 
 import json
+import logging
 import time
 
-from . import store
+from . import compat, store
+
+logger = logging.getLogger(__name__)
 
 SCHEMA = {
     "name": "browser_handoff",
@@ -118,13 +121,20 @@ def _always_visible() -> None:
 
 
 def register(ctx) -> None:
-    ctx.register_tool(
-        name="browser_handoff",
-        toolset="browser",
-        schema=SCHEMA,
-        handler=_handle,
-        emoji="🖥️",
-        description="Hand the browser to the user (login, 2FA, captcha) and wait for Done.",
-    )
-    _always_visible()
-    _keep_browsers_across_turns()
+    # Each piece only goes in when this Hermes still has the internals it uses (see compat.py).
+    for problem in compat.problems():
+        logger.warning("hermes-mobile: %s; that feature is off on this Hermes version.", problem)
+    features = compat.features()
+    if features["browser_handoff_tool"]:
+        ctx.register_tool(
+            name="browser_handoff",
+            toolset="browser",
+            schema=SCHEMA,
+            handler=_handle,
+            emoji="🖥️",
+            description="Hand the browser to the user (login, 2FA, captcha) and wait for Done.",
+        )
+        if features["handoff_tool_always_visible"]:
+            _always_visible()
+    if features["browsers_kept_between_turns"]:
+        _keep_browsers_across_turns()
